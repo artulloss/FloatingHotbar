@@ -6,3 +6,4 @@ load: POSTWORLD
 author: ARTulloss
 description: Extension to make Hotbar have floating items1
 website: https://github.com/artulloss
+depend: [Hotbar]
