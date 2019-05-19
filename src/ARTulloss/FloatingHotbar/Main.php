@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace ARTulloss\FloatingHotbar;
 
+use ARTulloss\Hotbar\Events\LoseHotbarEvent;
 use pocketmine\entity\Entity;
+use pocketmine\entity\object\ItemEntity;
 use pocketmine\event\Listener;
 use pocketmine\event\player\PlayerItemHeldEvent;
 use pocketmine\event\player\PlayerMoveEvent;
@@ -61,33 +63,42 @@ class Main extends PluginBase implements Listener{
     }
     /**
      * @param PlayerItemHeldEvent $event
+     * @priority HIGHEST
      */
     public function holdItem(PlayerItemHeldEvent $event): void {
         $player = $event->getPlayer();
-        $hotbar = $this->hotbar->getHotbarUsers()->getHotbarFor($player);
-        if($hotbar !== null) {
-            $name = $player->getName();
-            if(isset($this->playerItems[$name])) {
-                if(!$this->playerItems[$name]->isClosed())
-                    $this->playerItems[$name]->flagForDespawn();
-                unset($this->playerItems[$name]);
-            }
-            $item = $event->getItem();
-            $position = $this->calculateRelativePosition($player);
-            if($item->getId() !== Item::AIR) {
-                $nbt = Entity::createBaseNBT($position, null, lcg_value() * 360, 0);
-                $itemTag = $item->nbtSerialize();
-                $itemTag->setName("Item");
-                $nbt->setShort("Health", 5);
-                $nbt->setShort("PickupDelay", 999);
-                $nbt->setTag($itemTag);
-                $itemEntity = Entity::createEntity("ItemFloating", $player->getLevel(), $nbt, $player);
-                if($itemEntity instanceof CustomItem) {
-                    $itemEntity->spawnTo($player);
-                    $itemEntity->entityBaseTick(0);
-                    $this->playerItems[$name] = $itemEntity;
+        $users = $this->hotbar->getHotbarUsers();
+        $hotbarUser = $users->getHotbarFor($player);
+        if($hotbarUser !== null) {
+            $inv = $player->getInventory();
+            $index = $inv->getHeldItemIndex();
+            $items = $hotbarUser->getHotbar()->getItems();
+            $item = $inv->getItem($index);
+            if(isset($items[$index + 1]) && ($hotbarItem = $items[$index + 1]) && $item->getName() === $hotbarItem->getName()
+                && $item->getId() === $hotbarItem->getId() && $item->getDamage() === $hotbarItem->getDamage()) {
+                $name = $player->getName();
+                if (isset($this->playerItems[$name])) {
+                    $this->safeDespawn($this->playerItems[$name]);
+                    unset($this->playerItems[$name]);
                 }
-            }
+                $item = $event->getItem();
+                $position = $this->calculateRelativePosition($player);
+                if ($item->getId() !== Item::AIR) {
+                    $nbt = Entity::createBaseNBT($position, null, lcg_value() * 360, 0);
+                    $itemTag = $item->nbtSerialize();
+                    $itemTag->setName("Item");
+                    $nbt->setShort("Health", 5);
+                    $nbt->setShort("PickupDelay", 999);
+                    $nbt->setTag($itemTag);
+                    $itemEntity = Entity::createEntity("ItemFloating", $player->getLevel(), $nbt, $player);
+                    if ($itemEntity instanceof CustomItem) {
+                        $itemEntity->spawnTo($player);
+                        $itemEntity->entityBaseTick(0);
+                        $this->playerItems[$name] = $itemEntity;
+                    }
+                }
+            } elseif($item->getId() !== Item::AIR)
+                $users->remove($player, false);
         }
     }
     /**
@@ -101,5 +112,20 @@ class Main extends PluginBase implements Listener{
         $position = $position->add($subtract);
         $position->y += ($player->getEyeHeight() + $this->heightOffset);
         return $position;
+    }
+    /**
+     * @param LoseHotbarEvent $event
+     */
+    public function onLoseHotbar(LoseHotbarEvent $event): void{
+        $name = $event->getHotbarUser()->getPlayer()->getName();
+        if(isset($this->playerItems[$name]))
+            $this->safeDespawn($this->playerItems[$name]);
+    }
+    /**
+     * @param ItemEntity $item
+     */
+    public function safeDespawn(ItemEntity $item): void{
+        if (!$item->isClosed())
+            $item->flagForDespawn();
     }
 }
