@@ -4,6 +4,6 @@ version: 1.0.1
 api: 3.0.0
 load: POSTWORLD
 author: ARTulloss
-description: Extension to make Hotbar have floating items1
+description: Extension to make Hotbar have floating items
 website: https://github.com/artulloss
 depend: [Hotbar]
