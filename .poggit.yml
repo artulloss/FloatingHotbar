@@ -4,4 +4,6 @@ branches:
 projects:
   FloatingHotbar:
     path: ""
+    lint:
+      phpstan: false
 ...
