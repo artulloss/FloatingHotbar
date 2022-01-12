@@ -6,27 +6,17 @@ namespace ARTulloss\FloatingHotbar;
 
 use ARTulloss\Hotbar\Events\LoseHotbarEvent;
 use ARTulloss\Hotbar\Main as HBMain;
-use pocketmine\entity\Entity;
-use pocketmine\entity\EntityDataHelper;
-use pocketmine\entity\EntityFactory;
 use pocketmine\entity\Location;
 use pocketmine\entity\object\ItemEntity;
 use pocketmine\event\Listener;
 use pocketmine\event\player\PlayerItemHeldEvent;
 use pocketmine\event\player\PlayerMoveEvent;
-use pocketmine\item\Item;
-use pocketmine\item\ItemFactory;
 use pocketmine\item\ItemIds;
-use pocketmine\item\VanillaItems;
 use pocketmine\math\Vector3;
 use pocketmine\nbt\tag\CompoundTag;
 use pocketmine\player\Player;
-use pocketmine\plugin\Plugin;
 use pocketmine\plugin\PluginBase;
-use pocketmine\world\World;
-use ReflectionException;
 use function lcg_value;
-use function var_dump;
 
 /**
  *  _  _  __ _____ __  __  ___
@@ -48,9 +38,6 @@ class Main extends PluginBase implements Listener{
 
 	public function onEnable(): void{
 	    $this->getServer()->getPluginManager()->registerEvents($this, $this);
-        EntityFactory::getInstance()->register(CustomItem::class, function(World $world, CompoundTag $nbt): CustomItem{
-            return new CustomItem(EntityDataHelper::parseLocation($nbt, $world), VanillaItems::DIAMOND(), $nbt);
-        }, ['ItemFloating', CustomItem::class]);
 
         /** @var HBMain $hotbar */
         $this->hotbar = $this->getServer()->getPluginManager()->getPlugin('Hotbar');
