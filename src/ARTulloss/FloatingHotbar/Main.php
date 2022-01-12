@@ -5,15 +5,28 @@ declare(strict_types=1);
 namespace ARTulloss\FloatingHotbar;
 
 use ARTulloss\Hotbar\Events\LoseHotbarEvent;
+use ARTulloss\Hotbar\Main as HBMain;
 use pocketmine\entity\Entity;
+use pocketmine\entity\EntityDataHelper;
+use pocketmine\entity\EntityFactory;
+use pocketmine\entity\Location;
 use pocketmine\entity\object\ItemEntity;
 use pocketmine\event\Listener;
 use pocketmine\event\player\PlayerItemHeldEvent;
 use pocketmine\event\player\PlayerMoveEvent;
 use pocketmine\item\Item;
+use pocketmine\item\ItemFactory;
+use pocketmine\item\ItemIds;
+use pocketmine\item\VanillaItems;
 use pocketmine\math\Vector3;
-use pocketmine\Player;
+use pocketmine\nbt\tag\CompoundTag;
+use pocketmine\player\Player;
+use pocketmine\plugin\Plugin;
 use pocketmine\plugin\PluginBase;
+use pocketmine\world\World;
+use ReflectionException;
+use function lcg_value;
+use function var_dump;
 
 /**
  *  _  _  __ _____ __  __  ___
@@ -27,32 +40,34 @@ use pocketmine\plugin\PluginBase;
 
 class Main extends PluginBase implements Listener{
 
-    /** @var \ARTulloss\Hotbar\Main */
     private $hotbar;
     /** @var CustomItem[] */
-    private $playerItems;
-    /** @var float $heightOffset */
-    private $heightOffset;
-    /** @var bool $movementTracking */
-    private $movementTracking;
+    private array $playerItems;
+    private float $heightOffset;
+    private bool $movementTracking;
 
 	public function onEnable(): void{
 	    $this->getServer()->getPluginManager()->registerEvents($this, $this);
-        Entity::registerEntity(CustomItem::class, false, ['ItemFloating', 'minecraft:itemfloating']);
-        /** @var \ARTulloss\Hotbar\Main $hotbar */
+        EntityFactory::getInstance()->register(CustomItem::class, function(World $world, CompoundTag $nbt): CustomItem{
+            return new CustomItem(EntityDataHelper::parseLocation($nbt, $world), VanillaItems::DIAMOND(), $nbt);
+        }, ['ItemFloating', CustomItem::class]);
+
+        /** @var HBMain $hotbar */
         $this->hotbar = $this->getServer()->getPluginManager()->getPlugin('Hotbar');
         $config = $this->getConfig();
         $this->movementTracking = $config->get('Movement Tracking');
         $this->heightOffset = $config->get('Height Offset');
     }
+
     /**
      * @param PlayerMoveEvent $event
+     * @priority LOWEST
      */
     public function onMove(PlayerMoveEvent $event): void{
         if($this->movementTracking) {
             $player = $event->getPlayer();
             $name = $player->getName();
-            $hotbar = $this->hotbar->getHotbarUsers()->getHotbarFor($player);
+            $hotbar = $this->hotbar->getHotbarUsers()?->getHotbarFor($player);
             if($hotbar !== null) {
                 if(isset($this->playerItems[$name])) {
                     $position = $this->calculateRelativePosition($player);
@@ -61,6 +76,7 @@ class Main extends PluginBase implements Listener{
             }
         }
     }
+
     /**
      * @param PlayerItemHeldEvent $event
      * @priority HIGHEST
@@ -75,7 +91,7 @@ class Main extends PluginBase implements Listener{
             $items = $hotbarUser->getHotbar()->getItems();
             $item = $inv->getItem($index);
             if(isset($items[$index + 1]) && ($hotbarItem = $items[$index + 1]) && $item->getName() === $hotbarItem->getName()
-                && $item->getId() === $hotbarItem->getId() && $item->getDamage() === $hotbarItem->getDamage()) {
+                && $item->getId() === $hotbarItem->getId() && $item->getMeta() === $hotbarItem->getMeta()) {
                 $name = $player->getName();
                 if (isset($this->playerItems[$name])) {
                     $this->safeDespawn($this->playerItems[$name]);
@@ -83,36 +99,34 @@ class Main extends PluginBase implements Listener{
                 }
                 $item = $event->getItem();
                 $position = $this->calculateRelativePosition($player);
-                if ($item->getId() !== Item::AIR) {
-                    $nbt = Entity::createBaseNBT($position, null, lcg_value() * 360, 0);
-                    $itemTag = $item->nbtSerialize();
-                    $itemTag->setName("Item");
-                    $nbt->setShort("Health", 5);
-                    $nbt->setShort("PickupDelay", 999);
-                    $nbt->setTag($itemTag);
-                    $itemEntity = Entity::createEntity("ItemFloating", $player->getLevel(), $nbt, $player);
-                    if ($itemEntity instanceof CustomItem) {
-                        $itemEntity->spawnTo($player);
-                        $itemEntity->entityBaseTick(0);
-                        $this->playerItems[$name] = $itemEntity;
-                    }
+                if ($item->getId() !== ItemIds::AIR) {
+                    $nbt = CompoundTag::create()
+                        ->setShort("Health", 5)
+                        ->setShort("PickupDelay", 999);
+                    // No need for Custom class.
+                    $itemEntity = new ItemEntity(Location::fromObject($position, $player->getWorld(), lcg_value() * 360, 0), $item, $nbt);
+                    $itemEntity->spawnTo($player);
+                    $itemEntity->setHasGravity(false);
+                    $this->playerItems[$name] = $itemEntity;
                 }
-            } elseif($item->getId() !== Item::AIR)
+            } elseif($item->getId() !== ItemIds::AIR)
                 $users->remove($player, false);
         }
     }
+
     /**
      * @param Player $player
      * @return Vector3
      */
     private function calculateRelativePosition(Player $player): Vector3{
-        $position = $player->asVector3();
+        $position = $player->getPosition()->asVector3();
         $direction = $player->getDirectionVector();
         $subtract = $direction->multiply(0.75);
-        $position = $position->add($subtract);
+        $position = $position->add($subtract->getX(), $subtract->getY(), $subtract->getZ());
         $position->y += ($player->getEyeHeight() + $this->heightOffset);
         return $position;
     }
+
     /**
      * @param LoseHotbarEvent $event
      */
@@ -121,6 +135,7 @@ class Main extends PluginBase implements Listener{
         if(isset($this->playerItems[$name]))
             $this->safeDespawn($this->playerItems[$name]);
     }
+
     /**
      * @param ItemEntity $item
      */
