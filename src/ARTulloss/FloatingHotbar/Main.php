@@ -31,7 +31,7 @@ use function lcg_value;
 class Main extends PluginBase implements Listener{
 
     private $hotbar;
-    /** @var CustomItem[] */
+    /** @var ItemEntity[] */
     private array $playerItems;
     private float $heightOffset;
     private bool $movementTracking;
