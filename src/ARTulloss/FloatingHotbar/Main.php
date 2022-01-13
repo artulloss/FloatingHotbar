@@ -54,7 +54,7 @@ class Main extends PluginBase implements Listener{
         if($this->movementTracking) {
             $player = $event->getPlayer();
             $name = $player->getName();
-            $hotbar = $this->hotbar->getHotbarUsers()?->getHotbarFor($player);
+            $hotbar = $this->hotbar->getHotbarUsers()->getHotbarFor($player);
             if($hotbar !== null) {
                 if(isset($this->playerItems[$name])) {
                     $position = $this->calculateRelativePosition($player);
