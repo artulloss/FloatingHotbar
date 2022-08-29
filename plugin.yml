@@ -1,7 +1,7 @@
 name: FloatingHotbar
 main: ARTulloss\FloatingHotbar\Main
-version: 1.0.1
-api: 3.0.0
+version: 1.0.2
+api: 4.0.0
 load: POSTWORLD
 author: ARTulloss
 description: Extension to make Hotbar have floating items
